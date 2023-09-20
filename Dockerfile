@@ -1,16 +1,27 @@
-#Docker container for a simple java setup to communicate with Bowtie.
+FROM sbtscala/scala-sbt:eclipse-temurin-17.0.4_1.7.1_3.2.0 AS builder
+COPY Harness.java /usr/src
+COPY build.gradle /usr/src
+ENV GRADLE_VERSION=7.2
 
-FROM gradle:8.3.0-jdk11
+RUN curl -L https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -o gradle-${GRADLE_VERSION}-bin.zip
+RUN apt-get update -y && \
+    apt-get install -y unzip && \
+    apt-get clean && \
+	unzip "gradle-${GRADLE_VERSION}-bin.zip" -d /opt && \
+    rm "gradle-${GRADLE_VERSION}-bin.zip"
+ENV GRADLE_HOME=/opt/gradle-${GRADLE_VERSION}
+ENV PATH=${GRADLE_HOME}/bin:$PATH
 
 COPY Harness.java /usr/src
 COPY build.gradle /usr/src
-COPY mjs.jar /usr/src
-
 WORKDIR /usr/src/
-
-# We need to define the command to launch when we are going to run the image.
-# We use the keyword 'CMD' to do that.
-# The following command will execute "java".
-#ENV JAVA_OPTS="-Xms2550M -Xmx50M"
+RUN git clone https://gitlab.lip6.fr/jsonschema/modernjsonschemavalidator.git
+WORKDIR /usr/src/modernjsonschemavalidator
+RUN sbt assembly && \
+	mv /usr/src/modernjsonschemavalidator/target/scala-2.13/jschemavalidator-assembly-0.1.0-SNAPSHOT.jar /usr/src/mjs.jar
+WORKDIR /usr/src/
 RUN gradle jar --no-daemon
-CMD [ "java", "-Xss8m", "-jar", "build/libs/validator.jar"]
+
+FROM bellsoft/liberica-openjdk-alpine:21
+COPY --from=builder /usr/src/build/libs /usr/src
+CMD ["java", "-jar", "/usr/src/validator.jar"]
