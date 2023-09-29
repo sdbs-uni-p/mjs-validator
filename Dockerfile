@@ -1,16 +1,19 @@
 FROM sbtscala/scala-sbt:eclipse-temurin-17.0.4_1.7.1_3.2.0 AS builder
 COPY Harness.java /usr/src
 COPY build.gradle /usr/src
-ENV GRADLE_VERSION=7.2
+#ENV GRADLE_VERSION=7.2
 
-RUN curl -L https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -o gradle-${GRADLE_VERSION}-bin.zip
+#RUN curl -L https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -o gradle-${GRADLE_VERSION}-bin.zip
 RUN apt-get update -y && \
-    apt-get install -y unzip && \
-    apt-get clean && \
-	unzip "gradle-${GRADLE_VERSION}-bin.zip" -d /opt && \
-    rm "gradle-${GRADLE_VERSION}-bin.zip"
-ENV GRADLE_HOME=/opt/gradle-${GRADLE_VERSION}
-ENV PATH=${GRADLE_HOME}/bin:$PATH
+    apt-get install -y software-properties-common && \
+    add-apt-repository ppa:cwchien/gradle && \
+    apt-get update -y && \
+    apt-get install -y gradle-8.3 && \
+    apt-get clean 
+#	unzip "gradle-${GRADLE_VERSION}-bin.zip" -d /opt && \
+#    rm "gradle-${GRADLE_VERSION}-bin.zip"
+#ENV GRADLE_HOME=/opt/gradle-${GRADLE_VERSION}
+#ENV PATH=${GRADLE_HOME}/bin:$PATH
 
 COPY Harness.java /usr/src
 COPY build.gradle /usr/src
