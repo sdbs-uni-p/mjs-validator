@@ -1,6 +1,4 @@
 FROM sbtscala/scala-sbt:eclipse-temurin-17.0.4_1.7.1_3.2.0 AS builder
-COPY Harness.java /usr/src
-COPY build.gradle /usr/src
 
 RUN apt-get update -y && \
     apt-get install -y software-properties-common && \
@@ -8,7 +6,6 @@ RUN apt-get update -y && \
     apt-get update -y && \
     apt-get install -y gradle-8.3 && \
     apt-get clean 
-
 
 COPY Harness.java /usr/src
 COPY build.gradle /usr/src
