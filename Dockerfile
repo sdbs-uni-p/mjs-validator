@@ -13,6 +13,6 @@ COPY mjs.jar /usr/src/mjs.jar
 WORKDIR /usr/src/
 RUN gradle jar --no-daemon
 
-FROM bellsoft/liberica-openjdk-alpine:21
+FROM eclipse-temurin:17-jre
 COPY --from=builder /usr/src/build/libs /usr/src
 CMD ["java", "-jar", "/usr/src/validator.jar"]
