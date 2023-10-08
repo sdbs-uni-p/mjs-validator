@@ -104,10 +104,10 @@ class Harness{
 					for (Test test : runRequest.testCase().tests()) {
 						String instance = test.instance().toString();
 						MainClass$ m = MainClass$.MODULE$;
-						Tuple2<Object, Json> results = m.validateInstance(runRequest.testCase().schema().toString(), instance);
+						boolean results = m.validateInstance(runRequest.testCase().schema().toString(), instance);
 						
 						JSONObject result = new JSONObject();
-						result.put("valid", (boolean) results._1());
+						result.put("valid", (boolean) results);
 						resultArray.add(result);
 					}
 					
