@@ -15,4 +15,5 @@ RUN gradle jar --no-daemon
 
 FROM eclipse-temurin:17-jre
 COPY --from=builder /usr/src/build/libs /usr/src
-CMD ["java", "-jar", "/usr/src/validator.jar"]
+CMD ["java", "-Xss8m", "-jar", "/usr/src/validator.jar"]
+
