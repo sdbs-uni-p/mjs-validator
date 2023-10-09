@@ -3,6 +3,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 import main.MainClass$;
 import java.io.StringWriter;
 import java.io.PrintWriter;
@@ -39,10 +40,12 @@ class Harness{
 	private static final String NOT_IMPLEMENTED = "This case is not yet implemented.";
 	private static final Map<String, String> UNSUPPORTED_CASES = Map.ofEntries(
 		Map.entry("escaped pointer ref", NOT_IMPLEMENTED), Map.entry("empty tokens in $ref json-pointer", NOT_IMPLEMENTED),
-		Map.entry("maxLength validation", NOT_IMPLEMENTED),Map.entry("minLength validation", NOT_IMPLEMENTED),
-		Map.entry("$id inside an unknown keyword is not a real identifier", NOT_IMPLEMENTED), Map.entry("schema that uses custom metaschema with with no validation vocabulary", NOT_IMPLEMENTED),
+		Map.entry("schema that uses custom metaschema with with no validation vocabulary", NOT_IMPLEMENTED),
 		Map.entry("small multiple of large integer", NOT_IMPLEMENTED), Map.entry("$ref to $ref finds detached $anchor", NOT_IMPLEMENTED),
 		Map.entry("$ref to $dynamicRef finds detached $dynamicAnchor", NOT_IMPLEMENTED));
+    private static final Map<String, SpecificSkip> UNSUPPORTED_CASES_SPECIFIC = Map.ofEntries(
+        Map.entry("minLength validation", new SpecificSkip("one supplementary Unicode code point is not long enough", NOT_IMPLEMENTED)), 
+        Map.entry("maxLength validation", new SpecificSkip("two supplementary Unicode code points is long enough", NOT_IMPLEMENTED)));
 	
 	public static void main(String[] args) {
 		Scanner input = new Scanner(System.in);
@@ -95,13 +98,21 @@ class Harness{
 				RunRequest runRequest = objectMapper.treeToValue(node, RunRequest.class);
 				
 				try{
-					if(UNSUPPORTED_CASES.containsKey(runRequest.testCase().description())){
-						return skipMsg(UNSUPPORTED_CASES.get(runRequest.testCase().description()), runRequest.seq().asLong());
-					}
+                    String caseDescription = runRequest.testCase().description();
+					if(UNSUPPORTED_CASES.containsKey(caseDescription)){
+						return skipMsg(UNSUPPORTED_CASES.get(caseDescription), runRequest.seq().asLong());
+					} 
 					
 					JSONArray resultArray = new JSONArray();
 					
 					for (Test test : runRequest.testCase().tests()) {
+                        if (UNSUPPORTED_CASES_SPECIFIC.containsKey(caseDescription)) {
+                            SpecificSkip skip = UNSUPPORTED_CASES_SPECIFIC.get(caseDescription);
+                            if (skip.description().equals(test.description())) {
+                                resultArray.add(skipMsg(UNSUPPORTED_CASES_SPECIFIC.get(caseDescription).message()));
+                                continue;
+                            }
+                        }
 						String instance = test.instance().toString();
 						MainClass$ m = MainClass$.MODULE$;
 						boolean results = m.validateInstance(runRequest.testCase().schema().toString(), instance);
@@ -153,6 +164,14 @@ class Harness{
 		return error.toJSONString();
 	}
 	
+    public static JSONObject skipMsg(String message){
+		JSONObject error = new JSONObject();
+		error.put("skipped", true);
+		error.put("message",message);
+		return error;
+	}
+	
+    
 	public static String getDetailedMessage(Exception e, String schema){
 		StringWriter sw = new StringWriter();
 		e.printStackTrace(new PrintWriter(sw));
@@ -169,3 +188,5 @@ record RunRequest(JsonNode seq, @JsonProperty("case") TestCase testCase) {}
 record TestCase(String description, String comment, JsonNode schema, JsonNode registry, List<Test> tests) {}
 
 record Test(String description, String comment, JsonNode instance, boolean valid) {}
+
+record SpecificSkip(String description, String message) {}
