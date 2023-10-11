@@ -7,6 +7,7 @@ import org.json.simple.parser.JSONParser;
 import main.MainClass$;
 import java.io.StringWriter;
 import java.io.PrintWriter;
+import scala.collection.immutable.Map$;
 import scala.Tuple2;
 import java.io.*;
 import io.circe.Json;
@@ -19,7 +20,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-/**
+/** 
 * The Harness program implements an application that
 * simply take input from Bowtie application using standard
 * input and output to the standard output.
@@ -38,14 +39,14 @@ class Harness{
       DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 	
 	private static final String NOT_IMPLEMENTED = "This case is not yet implemented.";
-	private static final Map<String, String> UNSUPPORTED_CASES = Map.ofEntries(
-		Map.entry("escaped pointer ref", NOT_IMPLEMENTED), Map.entry("empty tokens in $ref json-pointer", NOT_IMPLEMENTED),
-		Map.entry("schema that uses custom metaschema with with no validation vocabulary", NOT_IMPLEMENTED),
-		Map.entry("small multiple of large integer", NOT_IMPLEMENTED), Map.entry("$ref to $ref finds detached $anchor", NOT_IMPLEMENTED),
-		Map.entry("$ref to $dynamicRef finds detached $dynamicAnchor", NOT_IMPLEMENTED));
-    private static final Map<String, SpecificSkip> UNSUPPORTED_CASES_SPECIFIC = Map.ofEntries(
-        Map.entry("minLength validation", new SpecificSkip("one supplementary Unicode code point is not long enough", NOT_IMPLEMENTED)), 
-        Map.entry("maxLength validation", new SpecificSkip("two supplementary Unicode code points is long enough", NOT_IMPLEMENTED)));
+	private static final Map<String, String> UNSUPPORTED_CASES = java.util.Map.ofEntries(
+		java.util.Map.entry("escaped pointer ref", NOT_IMPLEMENTED), java.util.Map.entry("empty tokens in $ref json-pointer", NOT_IMPLEMENTED),
+		java.util.Map.entry("schema that uses custom metaschema with with no validation vocabulary", NOT_IMPLEMENTED),
+	    java.util.Map.entry("small multiple of large integer", NOT_IMPLEMENTED), java.util.Map.entry("$ref to $ref finds detached $anchor", NOT_IMPLEMENTED),
+		java.util.Map.entry("$ref to $dynamicRef finds detached $dynamicAnchor", NOT_IMPLEMENTED));
+    private static final Map<String, SpecificSkip> UNSUPPORTED_CASES_SPECIFIC = java.util.Map.ofEntries(
+        java.util.Map.entry("minLength validation", new SpecificSkip("one supplementary Unicode code point is not long enough", NOT_IMPLEMENTED)), 
+        java.util.Map.entry("maxLength validation", new SpecificSkip("two supplementary Unicode code points is long enough", NOT_IMPLEMENTED)));
 	
 	public static void main(String[] args) {
 		Scanner input = new Scanner(System.in);
@@ -54,8 +55,7 @@ class Harness{
 			String output = new Harness().operate(line);
 			System.out.println(output);
 		}
-	}
-	
+	} 
 	public String operate(String line){
 		String error = "";
 		try{
@@ -96,7 +96,10 @@ class Harness{
 					throw new RuntimeException("Bowtie hasn't started!");
 				}
 				RunRequest runRequest = objectMapper.treeToValue(node, RunRequest.class);
-				
+				JsonNode registryNode = runRequest.testCase().registry();
+
+				Map<String, String> registryMap = convertJsonNodeToMapOfString(registryNode, objectMapper);
+
 				try{
                     String caseDescription = runRequest.testCase().description();
 					if(UNSUPPORTED_CASES.containsKey(caseDescription)){
@@ -105,18 +108,25 @@ class Harness{
 					
 					JSONArray resultArray = new JSONArray();
 					
+
 					for (Test test : runRequest.testCase().tests()) {
-                        if (UNSUPPORTED_CASES_SPECIFIC.containsKey(caseDescription)) {
-                            SpecificSkip skip = UNSUPPORTED_CASES_SPECIFIC.get(caseDescription);
-                            if (skip.description().equals(test.description())) {
-                                resultArray.add(skipMsg(UNSUPPORTED_CASES_SPECIFIC.get(caseDescription).message()));
-                                continue;
-                            }
-                        }
+						if (UNSUPPORTED_CASES_SPECIFIC.containsKey(caseDescription)) {
+							SpecificSkip skip = UNSUPPORTED_CASES_SPECIFIC.get(caseDescription);
+							if (skip.description().equals(test.description())) {
+								resultArray.add(skipMsg(UNSUPPORTED_CASES_SPECIFIC.get(caseDescription).message()));
+								continue;
+							}
+						}
 						String instance = test.instance().toString();
 						MainClass$ m = MainClass$.MODULE$;
-						boolean results = m.validateInstance(runRequest.testCase().schema().toString(), instance);
+
+						// TODO: Get solution with scala.collection.JavaConverters to run
+						scala.collection.immutable.Map<String, String> scalaMap = Map$.MODULE$.empty();
+						for (java.util.Map.Entry<String, String> entry : registryMap.entrySet()) {
+							scalaMap = scalaMap.$plus(new Tuple2<>(entry.getKey(), entry.getValue()));
+						}
 						
+						boolean results = m.validateInstance(runRequest.testCase().schema().toString(), instance, scalaMap);
 						JSONObject result = new JSONObject();
 						result.put("valid", (boolean) results);
 						resultArray.add(result);
@@ -177,7 +187,27 @@ class Harness{
 		e.printStackTrace(new PrintWriter(sw));
 		return sw.toString() + " " + schema;
 	}
+
+	public static Map<String, String> convertJsonNodeToMapOfString(JsonNode jsonNode, ObjectMapper objectMapper) {
+        Map<String, String> resultMap = new HashMap<>();
+        if (jsonNode != null && jsonNode.isObject()) {
+            jsonNode.fields().forEachRemaining(entry -> {
+                String key = entry.getKey();
+                JsonNode value = entry.getValue();
+                try {
+                    String valueAsString = objectMapper.writeValueAsString(value);
+                    resultMap.put(key, valueAsString);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+        return resultMap;
+    }
+
 }
+
+
 
 record StartRequest(int version) {}
 
