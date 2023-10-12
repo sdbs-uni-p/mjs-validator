@@ -1,19 +1,15 @@
 FROM sbtscala/scala-sbt:eclipse-temurin-17.0.4_1.7.2_2.13.10 AS builder
 
-RUN apt-get update -y && \
-    apt-get install -y software-properties-common && \
-    add-apt-repository ppa:cwchien/gradle && \
-    apt-get update -y && \
-    apt-get install -y gradle-8.3 && \
-    apt-get clean 
-
-COPY Harness.java /usr/src
-COPY build.gradle /usr/src
-COPY mjs.jar /usr/src/mjs.jar
+COPY Harness.scala /usr/src
+COPY build.sbt /usr/src
+COPY project /usr/src/project
+COPY lib /usr/src/lib
 WORKDIR /usr/src/
-RUN gradle jar --no-daemon
+RUN sbt assembly
+
+ENTRYPOINT [ "/usr/bin/bash" ]
 
 FROM eclipse-temurin:17-jre
-COPY --from=builder /usr/src/build/libs /usr/src
+COPY --from=builder /usr/src/target/scala-2.13/validator.jar /usr/src
 CMD ["java", "-Xss8m", "-Xmx16g", "-jar", "/usr/src/validator.jar"]
 
