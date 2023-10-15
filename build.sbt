@@ -44,3 +44,5 @@ packageOptions in (Compile, packageBin) += Package.ManifestAttributes(
   "Provider-Name" -> "json-simple",
   "Provider-Version" -> "1.1.1"
 )
+
+scalacOptions += "-Ymacro-annotations"
