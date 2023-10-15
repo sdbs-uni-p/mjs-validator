@@ -12,10 +12,7 @@ resolvers += Resolver.mavenCentral
 
 // Dependencies
 libraryDependencies ++= Seq(
-  "com.googlecode.json-simple" % "json-simple" % "1.1.1",
-  "com.fasterxml.jackson.core" % "jackson-databind" % "2.15.2",
-  "org.scala-lang" % "scala-library" % "2.13.10",
-  "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.15.2"
+  "org.scala-lang" % "scala-library" % "2.13.10"
 )
 
 val circeVersion = "0.14.1"
