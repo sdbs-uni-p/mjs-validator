@@ -27,15 +27,15 @@ libraryDependencies ++= Seq(
 unmanagedBase := baseDirectory.value / "lib"
 
 // Jar settings
-assemblyJarName in assembly := "validator.jar"
+assembly / assemblyJarName := "validator.jar"
 
-assemblyMergeStrategy in assembly := {
+assembly / assemblyMergeStrategy := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
   case x                             => MergeStrategy.first
 }
 
 // Add manifest information
-packageOptions in (Compile, packageBin) += Package.ManifestAttributes(
+Compile / packageBin / packageOptions += Package.ManifestAttributes(
   "Main-Class" -> "Harness",
   "Implementation-Group" -> "org.up.js",
   "Implementation-Name" -> "mjs",

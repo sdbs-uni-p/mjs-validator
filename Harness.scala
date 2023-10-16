@@ -104,7 +104,12 @@ class Harness {
         return skipMsg(SKIP_CASES(caseDescription), seqAsLong(runRequest.seq))
       }
 
-      val registryMap: Map[String, String] = runRequest.testCase.registry.getOrElse(null)
+      val registryMap: Map[String, String] = runRequest.testCase.registry
+        .flatMap { node =>
+          node.as[Map[String, Json]].toOption.map { jsonMap => jsonMap.mapValues(_.noSpaces).toMap }
+          node.as[Map[String, Json]].toOption.map { jsonMap => jsonMap.mapValues(_.noSpaces).toMap }
+        }
+        .getOrElse(null)
       var resultArray = Vector.empty[Json]
       val tests: List[Test] = runRequest.testCase.tests
 
@@ -205,14 +210,14 @@ case class TestCase(
     description: String,
     comment: Option[String],
     schema: Json,
-    registry: Option[Map[String, String]],
+    registry: Option[Json],
     tests: List[Test]
 )
 
 object TestCase {
-  implicit val decodeRegistry: Decoder[Option[Map[String, String]]] = Decoder[Json].map { json =>
-    json.asObject.map(_.toMap.view.mapValues(_.noSpaces).toMap)
-  }
+  // implicit val decodeRegistry: Decoder[Option[Map[String, String]]] = Decoder[Json].map { json =>
+  //   json.asObject.map(_.toMap.view.mapValues(_.noSpaces).toMap)
+  // }
   implicit val testCaseDecoder: Decoder[TestCase] = deriveDecoder[TestCase]
   implicit val testCaseEncoder: Encoder[TestCase] = deriveEncoder[TestCase]
 }
