@@ -22,7 +22,6 @@ class Harness {
     "$ref to $dynamicRef finds detached $dynamicAnchor" -> NOT_IMPLEMENTED
   )
 
-  // TODO: Find nicer solution
   val SKIP_TESTS: Map[String, SpecificSkip] = Map(
     "minLength validation" -> SpecificSkip("one supplementary Unicode code point is not long enough", NOT_IMPLEMENTED),
     "maxLength validation" -> SpecificSkip("two supplementary Unicode code points is long enough", NOT_IMPLEMENTED)
@@ -38,7 +37,8 @@ class Harness {
       }
       val cmd: String = (node \\ "cmd").headOption match {
         case Some(value) => value.asString.getOrElse("")
-        case None        => throw new Exception("Failed to get cmd")
+        // TODO: more specific exception
+        case None => throw new Exception("Failed to get cmd")
       }
       cmd match {
         case "start"   => start(node)
@@ -47,9 +47,11 @@ class Harness {
         case "stop"    => stop(node)
       }
     } catch {
+      // TODO: more specific exceptions?
       case e: Exception =>
         // TODO: Check all error messages
-        errorMsg(e.getMessage, -1)
+        val seq: Json = -1.asJson
+        errorMsg(e.getMessage, seq)
     }
   }
 
@@ -101,7 +103,7 @@ class Harness {
     try {
       val caseDescription = runRequest.testCase.description
       if (SKIP_CASES.contains(caseDescription)) {
-        return skipMsg(SKIP_CASES(caseDescription), seqAsLong(runRequest.seq))
+        return skipMsg(SKIP_CASES(caseDescription), runRequest.seq)
       }
 
       val registryMap: Map[String, String] = runRequest.testCase.registry
@@ -127,15 +129,15 @@ class Harness {
       }
       val finalResultArray = Json.arr(resultArray: _*)
       val out: Json = Json.obj(
-        "seq" -> runRequest.seq,
-        "results" -> finalResultArray
+        "results" -> finalResultArray,
+        "seq" -> runRequest.seq
       )
       out.noSpaces
 
     } catch {
       case e: Exception =>
         val msg = getDetailedMessage(e, runRequest.testCase.schema.noSpaces)
-        val error = errorMsg(e.getMessage(), seqAsLong(runRequest.seq))
+        val error = errorMsg(e.getMessage(), runRequest.seq)
         error
     }
   }
@@ -145,26 +147,28 @@ class Harness {
       throw new RuntimeException("Bowtie hasn't started!")
     }
     System.exit(0)
-    errorMsg("Stopped", -1); // TODO: why -1?
+    val seq: Json = -1.asJson
+    errorMsg("Stopped", seq);
   }
 
-  def errorMsg(message: String, seq: Long): String = {
+  // TODO: Msg functions to case classes?
+  def errorMsg(message: String, seq: Json): String = {
     val traceBack: Json = Json.obj(
       "traceBack" -> Json.fromString(message)
     )
     val error: Json = Json.obj(
       "errored" -> Json.fromBoolean(true),
-      "seq" -> Json.fromLong(seq),
-      "context" -> Json.fromString(traceBack.noSpaces)
+      "context" -> traceBack,
+      "seq" -> seq
     )
     error.noSpaces
   }
 
-  def skipMsg(message: String, seq: Long): String = {
+  def skipMsg(message: String, seq: Json): String = {
     val error: Json = Json.obj(
       "skipped" -> Json.fromBoolean(true),
-      "seq" -> Json.fromLong(seq),
-      "message" -> Json.fromString(message)
+      "message" -> Json.fromString(message),
+      "seq" -> seq
     )
     error.noSpaces
   }
@@ -180,10 +184,6 @@ class Harness {
   def getDetailedMessage(e: Exception, schema: String): String = {
     val sw = new StringWriter()
     sw.toString + " " + schema
-  }
-
-  def seqAsLong(seq: Json): Long = {
-    seq.as[Long].getOrElse(throw new Exception("Failed to convert to Long"))
   }
 
   def decodeTo[Request: Decoder](json: Json): Request = {
