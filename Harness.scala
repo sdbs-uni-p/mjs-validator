@@ -1,4 +1,5 @@
 // TODO: Prints
+// TODO: CI/CD
 import java.io._
 import io.circe.generic.auto._
 import io.circe.generic.semiauto._
@@ -22,16 +23,16 @@ class Harness {
     "$ref to $dynamicRef finds detached $dynamicAnchor" -> NOT_IMPLEMENTED
   )
 
-  val SKIP_TESTS: Map[String, SpecificSkip] = Map(
-    "minLength validation" -> SpecificSkip("one supplementary Unicode code point is not long enough", NOT_IMPLEMENTED),
-    "maxLength validation" -> SpecificSkip("two supplementary Unicode code points is long enough", NOT_IMPLEMENTED)
+  val SKIP_TESTS: Map[String, TestSkip] = Map(
+    "minLength validation" -> TestSkip("one supplementary Unicode code point is not long enough", NOT_IMPLEMENTED),
+    "maxLength validation" -> TestSkip("two supplementary Unicode code points is long enough", NOT_IMPLEMENTED)
   )
 
   implicit val customConfig: Configuration = Configuration.default.withDefaults
 
   def operate(line: String) = {
     try {
-      val node: io.circe.Json = parse(line) match {
+      val node: Json = parse(line) match {
         case Right(json)          => json
         case Left(parsingFailure) => throw parsingFailure
       }
@@ -50,7 +51,7 @@ class Harness {
     } catch {
       case e: Exception =>
         // TODO: Check if this is the correct way to handle errors
-        println(Error(e.getMessage(), e.getStackTrace().mkString("\n")).asJson.noSpaces)
+        println(Errored(e.getMessage(), e.getStackTrace().mkString("\n")).asJson.noSpaces)
     }
   }
 
@@ -98,41 +99,48 @@ class Harness {
     }
 
     val runRequest: RunRequest = decodeTo[RunRequest](node)
-
-    val caseDescription = runRequest.testCase.description
-    if (SKIP_CASES.contains(caseDescription)) {
-      return SkippedRunResponse(runRequest.seq, true, Some(NOT_IMPLEMENTED)).asJson.noSpaces // TODO: return here or add to array?
-      // if we add to array, we only need SkippedTest
-    }
-
-    val registryMap: Map[String, String] = runRequest.testCase.registry
-      .flatMap { node =>
-        node.as[Map[String, Json]].toOption.map { jsonMap => jsonMap.mapValues(_.noSpaces).toMap }
-        node.as[Map[String, Json]].toOption.map { jsonMap => jsonMap.mapValues(_.noSpaces).toMap }
-      }
-      .getOrElse(null)
-
-    var resultArray = Vector.empty[Json]
     try {
-      runRequest.testCase.tests.foreach { test =>
-        val testDescription = test.description
-        val instance = test.instance.noSpaces
+      val caseDescription = runRequest.testCase.description
+      if (SKIP_CASES.contains(caseDescription)) {
+        return SkippedRunResponse(runRequest.seq, true, Some(NOT_IMPLEMENTED)).asJson.noSpaces
+      }
 
-        if (SKIP_TESTS.contains(caseDescription) && SKIP_TESTS(caseDescription).description == testDescription) {
-          resultArray :+= SkippedTest(message = Some(SKIP_TESTS(caseDescription).message)).asJson
-        } else {
-          val schema: String = runRequest.testCase.schema.noSpaces
-          val result = Json.obj("valid" -> MainClass.validateInstance(schema, instance, registryMap).asJson)
-          resultArray :+= result
+      val registryMap: Map[String, String] = runRequest.testCase.registry
+        .flatMap { node =>
+          node.as[Map[String, Json]].toOption.map { jsonMap => jsonMap.mapValues(_.noSpaces).toMap }
+          node.as[Map[String, Json]].toOption.map { jsonMap => jsonMap.mapValues(_.noSpaces).toMap }
+        }
+        .getOrElse(null)
+
+      var resultArray = Vector.empty[Json]
+      runRequest.testCase.tests.foreach { test =>
+        try {
+          val testDescription: String = test.description
+          val instance: String = test.instance.noSpaces
+
+          if (SKIP_TESTS.contains(caseDescription) && SKIP_TESTS(caseDescription).description == testDescription) {
+            resultArray :+= SkippedTest(message = Some(SKIP_TESTS(caseDescription).message)).asJson
+          } else {
+            val schema: String = runRequest.testCase.schema.noSpaces
+
+            val result: Json = Json.obj("valid" -> MainClass.validateInstance(schema, instance, registryMap).asJson)
+            resultArray :+= result
+          }
+        } catch {
+          // TODO: Testing
+          case e: Exception => {
+            val error: Errored = Errored(e.getMessage(), e.getStackTrace().mkString("\n"))
+            resultArray :+= ErroredTest(true, error).asJson
+          }
         }
       }
       RunResponse(runRequest.seq, resultArray).asJson.noSpaces
 
     } catch {
-      // We currently abort instead of creating errored responses?
+      // TODO: We currently abort instead of creating errored responses?
       case e: Exception =>
-        val error: Error = Error(e.getMessage(), e.getStackTrace().mkString("\n"))
-        ErrorRunResponse(runRequest.seq, context = error).asJson.noSpaces
+        val error: Errored = Errored(e.getMessage(), e.getStackTrace().mkString("\n"))
+        ErroredRunResponse(runRequest.seq, context = error).asJson.noSpaces
     }
   }
 
@@ -143,6 +151,8 @@ class Harness {
     }
   }
 }
+
+// TODO: Check if we need any more case classes
 
 case class Test(description: String, comment: Option[String], instance: Json, valid: Option[Boolean])
 
@@ -165,15 +175,17 @@ object RunRequest {
 
 case class RunResponse(seq: Json, results: Vector[Json])
 
-case class ErrorRunResponse(seq: Json, errored: Boolean = true, context: Error)
+case class ErroredRunResponse(seq: Json, errored: Boolean = true, context: Errored)
 
-case class Error(message: String, traceback: String) // TODO: needed?
+case class ErroredTest(errored: Boolean = true, context: Errored) // TODO: restructure?
+
+case class Errored(message: String, traceback: String) // TODO: needed?
 
 case class SkippedRunResponse(seq: Json, skipped: Boolean = true, message: Option[String] = None)
 
 case class SkippedTest(skipped: Boolean = true, message: Option[String] = None)
 
-case class SpecificSkip(description: String, message: String)
+case class TestSkip(description: String, message: String)
 
 object Harness {
   var started: Boolean = false
