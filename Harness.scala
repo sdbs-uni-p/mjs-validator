@@ -1,5 +1,4 @@
 // TODO: Prints
-// TODO: CI/CD
 import java.io._
 import io.circe.generic.auto._
 import io.circe.generic.semiauto._
@@ -14,7 +13,7 @@ import java.util.Scanner
 class Harness {
   val NOT_IMPLEMENTED: String = "This case is not yet implemented."
 
-  val SKIP_CASES: Map[String, String] = Map(
+  val SKIPPED_CASES: Map[String, String] = Map(
     "escaped pointer ref" -> NOT_IMPLEMENTED,
     "empty tokens in $ref json-pointer" -> NOT_IMPLEMENTED,
     "schema that uses custom metaschema with with no validation vocabulary" -> NOT_IMPLEMENTED,
@@ -23,7 +22,7 @@ class Harness {
     "$ref to $dynamicRef finds detached $dynamicAnchor" -> NOT_IMPLEMENTED
   )
 
-  val SKIP_TESTS: Map[String, TestSkip] = Map(
+  val SKIPPED_TESTS: Map[String, TestSkip] = Map(
     "minLength validation" -> TestSkip("one supplementary Unicode code point is not long enough", NOT_IMPLEMENTED),
     "maxLength validation" -> TestSkip("two supplementary Unicode code points is long enough", NOT_IMPLEMENTED)
   )
@@ -89,7 +88,7 @@ class Harness {
       throw new RuntimeException("Bowtie hasn't started!")
     }
     val dialectRequest: DialectRequest = decodeTo[DialectRequest](node)
-    // TODO: Handle properly (if this is not correct)
+    // TODO: Handle properly (if this is not correct); We should probably return true
     DialectResponse(false).asJson.noSpaces
   }
 
@@ -101,7 +100,7 @@ class Harness {
     val runRequest: RunRequest = decodeTo[RunRequest](node)
     try {
       val caseDescription = runRequest.testCase.description
-      if (SKIP_CASES.contains(caseDescription)) {
+      if (SKIPPED_CASES.contains(caseDescription)) {
         return SkippedRunResponse(runRequest.seq, true, Some(NOT_IMPLEMENTED)).asJson.noSpaces
       }
 
@@ -118,8 +117,8 @@ class Harness {
           val testDescription: String = test.description
           val instance: String = test.instance.noSpaces
 
-          if (SKIP_TESTS.contains(caseDescription) && SKIP_TESTS(caseDescription).description == testDescription) {
-            resultArray :+= SkippedTest(message = Some(SKIP_TESTS(caseDescription).message)).asJson
+          if (SKIPPED_TESTS.contains(caseDescription) && SKIPPED_TESTS(caseDescription).description == testDescription) {
+            resultArray :+= SkippedTest(message = Some(SKIPPED_TESTS(caseDescription).message)).asJson
           } else {
             val schema: String = runRequest.testCase.schema.noSpaces
 
