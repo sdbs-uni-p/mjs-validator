@@ -1,15 +1,18 @@
 FROM sbtscala/scala-sbt:eclipse-temurin-17.0.4_1.7.2_2.13.10 AS builder
 
-COPY Harness.scala /usr/src
-COPY build.sbt /usr/src
-COPY project /usr/src/project
-COPY lib /usr/src/lib
-WORKDIR /usr/src/
+RUN git clone https://gitlab.lip6.fr/jsonschema/modernjsonschemavalidator /opt/mjs
+WORKDIR /opt/mjs
+RUN git checkout v0.1.0
 RUN sbt assembly
 
-ENTRYPOINT [ "/usr/bin/bash" ]
+WORKDIR /opt/harness
+COPY Harness.scala /opt/harness
+COPY build.sbt /opt/harness
+COPY project /opt/harness/project
+RUN mkdir lib && cp /opt/mjs/target/scala-*/jschemavalidator.jar /opt/harness/lib/mjs.jar
+RUN sbt assembly
 
-FROM eclipse-temurin:17-jre
-COPY --from=builder /usr/src/target/scala-2.13/validator.jar /usr/src
+FROM bellsoft/liberica-openjdk-alpine:21
+COPY --from=builder /opt/harness/target/scala-*/validator.jar /opt/app
 CMD ["java", "-Xss8m", "-Xmx16g", "-jar", "/usr/src/validator.jar"]
 
