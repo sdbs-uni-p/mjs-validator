@@ -1,5 +1,3 @@
-// TODO: Prints
-// TODO: "throws" in Scala?
 import java.io._
 import io.circe.generic.auto._
 import io.circe.generic.semiauto._
@@ -77,7 +75,6 @@ class Harness {
     if (!Harness.started) {
       throw new IllegalArgumentException("Not started!")
     }
-    
     DialectResponse(true).asJson.noSpaces
   }
 
@@ -87,7 +84,6 @@ class Harness {
     }
 
     val runRequest: RunRequest = decodeTo[RunRequest](node)
-    // TODO: check try/catch and error handling
     try {
       val caseDescription = runRequest.testCase.description
       if (UNSUPPORTED_CASES.contains(caseDescription)) {
