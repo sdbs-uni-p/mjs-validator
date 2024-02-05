@@ -23,7 +23,10 @@ class Harness {
   // List of specific tests of a case that are not supported
   val UNSUPPORTED_TESTS: Map[String, TestSkip] = Map(
     "minLength validation" -> TestSkip("one supplementary Unicode code point is not long enough", NOT_IMPLEMENTED),
-    "maxLength validation" -> TestSkip("two supplementary Unicode code points is long enough", NOT_IMPLEMENTED)
+    "maxLength validation" -> TestSkip("two supplementary Unicode code points is long enough", NOT_IMPLEMENTED),
+    // The above two tests were renamed to the following two tests. We keep the old names for backward compatibility.
+    "minLength validation" -> TestSkip("one grapheme is not long enough", NOT_IMPLEMENTED),
+    "maxLength validation" -> TestSkip("two graphemes is long enough", NOT_IMPLEMENTED)
   )
 
   def operate(line: String) = {
@@ -62,12 +65,13 @@ class Harness {
       List("https://json-schema.org/draft/2020-12/schema"),
       "https://gitlab.lip6.fr/jsonschema/modernjsonschemavalidator",
       "https://gitlab.lip6.fr/jsonschema/modernjsonschemavalidator/issues",
+      "https://gitlab.lip6.fr/jsonschema/modernjsonschemavalidator",
       System.getProperty("os.name"),
       System.getProperty("os.version"),
       Runtime.version().toString,
       List()
     )
-    StartResponse(startRequest.version, true, implementation).asJson.noSpaces
+    StartResponse(startRequest.version, implementation).asJson.noSpaces
   }
 
   def dialect(node: Json): String = {
@@ -128,14 +132,14 @@ class Harness {
 
 case class Implementation(language: String, name: String, version: String,
                           dialects: List[String], homepage: String, issues: String,
-                          os: String, os_version: String, language_version: String,
-                          links: List[Link])
+                          source: String, os: String, os_version: String,
+                          language_version: String, links: List[Link])
 
 case class Link(url: String, description: String)
 
 case class StartRequest(version: Int)
 
-case class StartResponse(version: Int, ready: Boolean, implementation: Implementation)
+case class StartResponse(version: Int, implementation: Implementation)
 
 case class DialectRequest(dialect: String)
 
